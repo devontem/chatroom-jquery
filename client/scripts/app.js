@@ -2,6 +2,7 @@
 var app = {};
 window.friends = [];
 window.rooms = [];
+window.currentRoom = "Default";
 
 $( document ).ready(function(){
   app.server = 'https://api.parse.com/1/classes/chatterbox';
@@ -32,7 +33,7 @@ $( document ).ready(function(){
       type:  'GET',
       data: {order: '-createdAt', limit: 20},
       contentType: 'application/json',
-      success: function(data) {
+      success: function(data){
         var res = data.results;
         app.clearMessages();
         // updateChatRoom(data.results, chatRoom);
@@ -55,7 +56,10 @@ $( document ).ready(function(){
   };
   
   app.addRoom = function(roomname){
-    $('#roomSelect').append('<option class="' +roomname + '">' + roomname + '</option>');
+    window.rooms.push(roomname);
+    window.currentRoom = roomname;
+
+    app.send(new Message("", "", roomname));
   };
   
   app.addFriend = function(username){
@@ -79,12 +83,19 @@ $( document ).ready(function(){
     // pushes all the roomnames to an array
     $selectRooms = $('.roomSelect');
     $selectRooms.empty();
-    $selectRooms.append($('<option class="default">Default</option>').addClass('default'));
+    var node = $('<option class="default">Default</option>').addClass('default');
+    // if (node == window.currentRoom) { node.attr('selected', true) }
+    $selectRooms.append(node);
     
     _.each(messages, function(item){
     if(item.roomname && window.rooms.indexOf(item.roomname) < 0) {
         window.rooms.push(item.roomname);
-        $selectRooms.append('<option class="' + item.roomname + '">' + item.roomname + '</option>');
+        var node = $('<option class="' + item.roomname + '">' + item.roomname + '</option>');
+        $selectRooms.append(node);
+        
+        if (window.currentRoom === item.roomname){
+          node.attr('selected', true);
+        }
       }
     });
   };
@@ -95,6 +106,7 @@ $( document ).ready(function(){
   
     _.each(messages, function(item){
       if (item.roomname === chatRoom || chatRoom === undefined){
+ 
         app.addMessage(item);
         app.checkIfFriend(item.username);
       }
@@ -118,16 +130,16 @@ $( document ).ready(function(){
   // Click handler for when room options change (append only messages with correct roomname value)
 
   $('.roomSelect').on('change', function(){ 
-    var room = $(this).val();
+    window.currentRoom = $(this).val();
     
-    app.fetch(room);
+    app.fetch(window.currentRoom);
     
   });
  
    var Message = function(username, text, roomName){
-    this.username = username;
+    this.username = _.escape(username);
     this.text = _.escape(text);
-    this.roomName = roomName;
+    this.roomName = _.escape(roomName);
   };
  
   // Submit button click handler for posting message to server 
@@ -138,8 +150,15 @@ $( document ).ready(function(){
       $('#message').val(), 
       $('.roomSelect').val());
     
+    $('#message').val('');
     app.handleSubmit(messageObject);
   });
+  
+  $('.addRoom').on('click', function(){
+    var roomName = $('.roomInput').val();
+    app.addRoom(roomName);
+  })
+  
   
   app.init();
 
