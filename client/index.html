@@ -17,16 +17,19 @@
       <h1>chatterbox</h1>
       <!-- Your HTML goes here! -->
       <div id="form">
-       <!--  <form> -->
           <label>Room</label>
-          <input type="text"></input>
           
-
+          <!--======== Select Rooms =========-->
           <select class="roomSelect"></select>
+          <input placeholder="Create a room" type="text"></input>
           
-          <input type="text"></input>
-          <button class="submit">Submit</button>
-     <!--    </form> -->
+          <!--======== Input Bar ========-->
+          <input id="message" placeholder="Send a message" type="text"></input>
+          <div id="send">
+            <button class="submit">Submit</button>
+          </div>
+          
+          <!---======= Chat Messages ========-->
       <ul id="chats">
       </ul>
       </div>

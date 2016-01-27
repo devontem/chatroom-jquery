@@ -1,31 +1,24 @@
 // YOUR CODE HERE:
 var app = {};
+window.friends = [];
+window.rooms = [];
+
 $( document ).ready(function(){
   app.server = 'https://api.parse.com/1/classes/chatterbox';
 
   app.init = function(){
-    $.ajax({
-      url: app.server,
-      type: 'GET',
-      contentType: 'application/json',
-          success: function(data){
-          updateChatRoom(data.results);
-          console.log(data);
-      },
-      error: function(data) {
-        
-      }
-    });
+    app.fetch();
   };
 
-  app.send = function(message){
+  app.send = function(message, chatRoom){
     $.ajax({
       url: app.server,
       type: 'POST',
       data: JSON.stringify(message),
       contentType: 'application/json',
-      success: function(data){
-        console.log(message);
+      success: function(){
+        app.fetch(chatRoom);
+        console.log('worked post!', message);
       },
       error: function (data){
         console.log('error', data);
@@ -33,14 +26,18 @@ $( document ).ready(function(){
     });
   };
 
-  app.fetch = function(){
+  app.fetch = function(chatRoom){
     $.ajax({
       url: app.server,
-      type: 'GET',
+      type:  'GET',
+      data: {order: '-createdAt', limit: 20},
       contentType: 'application/json',
       success: function(data) {
+        var res = data.results;
         app.clearMessages();
-        updateChatRoom(data.results);
+        // updateChatRoom(data.results, chatRoom);
+        app.roomOptions(res);
+        app.roomMessageFilter(res, chatRoom);
       },
       error: function(data){
     
@@ -49,70 +46,101 @@ $( document ).ready(function(){
   };
 
   app.clearMessages = function(){
-    var $chats = $('#chats');
-    $chats.empty();
-  }
+    $('#chats').empty();
+  };
   
   app.addMessage = function(message){
     var $chats = $('#chats');
-
-    $chats.append('<li class="username" data-username="'+message.username+'"><span><a href="#">'+message.username+": </a></span>"+message.text+'</li>');
+    $chats.append('<li class="username" data-username="'+message.username+'"><span><a href="#">'+message.username+":</a></span>"+message.text+'</li>');
   };
   
   app.addRoom = function(roomname){
     $('#roomSelect').append('<option class="' +roomname + '">' + roomname + '</option>');
   };
   
-  var friends = [];
-  
   app.addFriend = function(username){
-    friends.push(username);
+    if(window.friends.indexOf(username) < 0) {
+      window.friends.push(username);
+    }
+  };
+  
+  app.handleSubmit = function(messageObject, chatRoom){
+    app.send(messageObject, chatRoom);
+  };
+  
+  app.feedGenerator = function(dataResult) { //Iterates through data.results from fetch request and
+    _.each(dataResult, function(item){        //appends each message object onto the dom
+      addMessage(item);
+    });
+  };
+  
+  app.roomOptions = function(messages){
+    window.rooms = [];
+    // pushes all the roomnames to an array
+    $selectRooms = $('.roomSelect');
+    $selectRooms.empty();
+    $selectRooms.append($('<option class="default">Default</option>').addClass('default'));
+    
+    _.each(messages, function(item){
+    if(item.roomname && window.rooms.indexOf(item.roomname) < 0) {
+        window.rooms.push(item.roomname);
+        $selectRooms.append('<option class="' + item.roomname + '">' + item.roomname + '</option>');
+      }
+    });
   };
  
-  var updateChatRoom = function(messages){
-    var rooms = [];
+ // if no chatRoom 'filter' is passed, all messages are displayed
+  app.roomMessageFilter = function(messages, chatRoom){
+    var chatRoom = chatRoom || undefined;
+  
     _.each(messages, function(item){
-    if(item.roomname && rooms.indexOf(item.roomname) < 0) {
-          rooms.push(item.roomname);
-        }
-      });
-
-    // Appending roomnames
-    $selectRooms = $('.rooms');
-    for (var i = 0; i < rooms.length; i++) {
-      $selectRooms.append('<option class="' + rooms[i] + '">' + rooms[i] + '</option>');
-    }
-    // Appending messages to the DOM
-    var $chats = $('#chats');
-    for (var i = 0; i < 10; i++){
-      app.addMessage(messages[i]);
-      if(friends.indexOf(messages[i].username) > -1) {
-        $('li[data-username="' + messages[i].username + '"] span').addClass('bold');
+      if (item.roomname === chatRoom || chatRoom === undefined){
+        app.addMessage(item);
+        app.checkIfFriend(item.username);
       }
+    });
+  };
+  
+  app.checkIfFriend = function(messageObjectUsername){
+    if(window.friends.indexOf(messageObjectUsername) > -1) {
+      $('li[data-username="' + messageObjectUsername + '"] span').addClass('bold');
     }
+  };
+  
+  // Username click handler to add friends
 
   $('.username').on('click', function(){
     var username = $(this).attr('data-username');
     app.addFriend(username);
     app.fetch();
   });
+  
+  // Click handler for when room options change (append only messages with correct roomname value)
 
- };
-
-  var Message = function(){
-    this.username = window.location.search.substring(10);
-    this.text = $('input[type="text"]').val();
-    this.roomName = $('.rooms').val();
+  $('.roomSelect').on('change', function(){ 
+    var room = $(this).val();
+    
+    app.fetch(room);
+    
+  });
+ 
+   var Message = function(username, text, roomName){
+    this.username = username;
+    this.text = _.escape(text);
+    this.roomName = roomName;
   };
-
+ 
+  // Submit button click handler for posting message to server 
 
   $('.submit').on('click', function(){
     console.log('clicked');
-    var messageObject = new Message;
-    app.send(messageObject);
+    var messageObject = new Message(window.location.search.substring(10), 
+      $('#message').val(), 
+      $('.roomSelect').val());
+    
+    app.handleSubmit(messageObject);
   });
   
-
   app.init();
 
 });
